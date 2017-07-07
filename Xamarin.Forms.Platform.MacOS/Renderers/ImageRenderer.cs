@@ -6,7 +6,7 @@ using CoreGraphics;
 
 namespace Xamarin.Forms.Platform.MacOS
 {
-	public class ImageRenderer : ViewRenderer<Image, NSView>
+	public class ImageRenderer : ViewRenderer<Image, FormsNSImageView>
 	{
 		bool _isDisposed;
 
