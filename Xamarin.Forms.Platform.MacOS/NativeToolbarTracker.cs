@@ -29,41 +29,31 @@ namespace Xamarin.Forms.Platform.MacOS
 		public List<Item> Items { get; }
 	}
 
-	internal class NativeToolbarTracker : NSToolbarDelegate
+	abstract public class NativeToolbarTrackerBase : NSToolbarDelegate
 	{
-		const string ToolBarId = "AwesomeBarToolbar";
+		protected const string ToolBarId = "AwesomeBarToolbar";
+		protected const string _defaultBackButtonTitle = "Back";
 
-		readonly string _defaultBackButtonTitle = "Back";
-		readonly ToolbarTracker _toolbarTracker;
-
-		NSToolbar _toolbar;
-		NavigationPage _navigation;
-
+		protected virtual bool HasTabs => _hasTabs;
 		bool _hasTabs;
 
-		const double BackButtonItemWidth = 36;
-		const double ToolbarItemWidth = 44;
-		const double ToolbarItemHeight = 25;
-		const double ToolbarItemSpacing = 6;
-		const double ToolbarHeight = 30;
-		const double NavigationTitleMinSize = 300;
+		protected NavigationPage _navigation;
+		readonly ToolbarTracker _toolbarTracker;
 
-		const string NavigationGroupIdentifier = "NavigationGroup";
-		const string TabbedGroupIdentifier = "TabbedGroup";
-		const string ToolbarItemsGroupIdentifier = "ToolbarGroup";
-		const string TitleGroupIdentifier = "TitleGroup";
-
-		NativeToolbarGroup _navigationGroup;
-		NativeToolbarGroup _tabbedGroup;
-		NativeToolbarGroup _toolbarGroup;
-		NativeToolbarGroup _titleGroup;
-
-		NSView _nsToolbarItemViewer;
-
-		public NativeToolbarTracker()
+		public NativeToolbarTrackerBase()
 		{
 			_toolbarTracker = new ToolbarTracker();
 			_toolbarTracker.CollectionChanged += ToolbarTrackerOnCollectionChanged;
+		}
+
+		public override string[] AllowedItemIdentifiers(NSToolbar toolbar)
+		{
+			return new string[] { };
+		}
+
+		public override string[] DefaultItemIdentifiers(NSToolbar toolbar)
+		{
+			return new string[] { };
 		}
 
 		public NavigationPage Navigation
@@ -102,15 +92,117 @@ namespace Xamarin.Forms.Platform.MacOS
 			}
 		}
 
-		public override string[] AllowedItemIdentifiers(NSToolbar toolbar)
+		void NavigationPagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
 		{
-			return new string[] { };
+			if (e.PropertyName.Equals(NavigationPage.BarTextColorProperty.PropertyName) ||
+				e.PropertyName.Equals(NavigationPage.BarBackgroundColorProperty.PropertyName))
+				UpdateToolBar();
 		}
 
-		public override string[] DefaultItemIdentifiers(NSToolbar toolbar)
+		void ToolbarTrackerOnCollectionChanged(object sender, EventArgs eventArgs)
 		{
-			return new string[] { };
+			UpdateToolbarItems();
 		}
+
+		public List<ToolbarItem> GetToolbarItems()
+		{
+			return _toolbarTracker.ToolbarItems.ToList();
+		}
+
+		protected virtual NSToolbar ConfigureToolbar()
+		{
+			var toolbar = new NSToolbar(ToolBarId)
+			{
+				DisplayMode = NSToolbarDisplayMode.Icon,
+				AllowsUserCustomization = false,
+				ShowsBaselineSeparator = true,
+				SizeMode = NSToolbarSizeMode.Regular,
+				Delegate = this
+			};
+
+			return toolbar;
+		}
+
+		protected bool ShowBackButton()
+		{
+			if (_navigation == null)
+				return false;
+
+			return NavigationPage.GetHasBackButton(_navigation.CurrentPage) && !IsRootPage();
+		}
+
+		protected bool IsRootPage()
+		{
+			if (_navigation == null)
+				return true;
+			return _navigation.StackDepth <= 1;
+		}
+
+		protected NSColor GetBackgroundColor()
+		{
+			var backgroundNSColor = NSColor.Clear;
+			if (Navigation != null && Navigation.BarBackgroundColor != Color.Default)
+				backgroundNSColor = Navigation.BarBackgroundColor.ToNSColor();
+			return backgroundNSColor;
+		}
+
+		protected NSColor GetTitleColor()
+		{
+			var titleNSColor = NSColor.Black;
+			if (Navigation != null && Navigation?.BarTextColor != Color.Default)
+				titleNSColor = Navigation.BarTextColor.ToNSColor();
+
+			return titleNSColor;
+		}
+
+		protected string GetCurrentPageTitle()
+		{
+			if (_navigation == null)
+				return string.Empty;
+			return _navigation.Peek(0).Title ?? "";
+		}
+
+		protected string GetPreviousPageTitle()
+		{
+			if (_navigation == null || _navigation.StackDepth <= 1)
+				return string.Empty;
+
+			return _navigation.Peek(1).Title ?? _defaultBackButtonTitle;
+		}
+
+		protected async Task NavigateBackFrombackButton()
+		{
+			var popAsyncInner = _navigation?.PopAsyncInner(true, true);
+			if (popAsyncInner != null)
+				await popAsyncInner;
+		}
+
+		public abstract void UpdateToolBar();
+		public abstract void UpdateToolbarItems();
+	}
+
+	internal class NativeToolbarTracker : NativeToolbarTrackerBase
+	{
+		NSToolbar _toolbar;
+
+		const double BackButtonItemWidth = 36;
+		const double ToolbarItemWidth = 44;
+		const double ToolbarItemHeight = 25;
+		const double ToolbarItemSpacing = 6;
+		const double ToolbarHeight = 30;
+		const double NavigationTitleMinSize = 300;
+
+		const string NavigationGroupIdentifier = "NavigationGroup";
+		const string TabbedGroupIdentifier = "TabbedGroup";
+		const string ToolbarItemsGroupIdentifier = "ToolbarGroup";
+		const string TitleGroupIdentifier = "TitleGroup";
+
+		NativeToolbarGroup _navigationGroup;
+		NativeToolbarGroup _tabbedGroup;
+		NativeToolbarGroup _toolbarGroup;
+		NativeToolbarGroup _titleGroup;
+
+		NSView _nsToolbarItemViewer;
 
 		public override NSToolbarItem WillInsertItem(NSToolbar toolbar, string itemIdentifier, bool willBeInserted)
 		{
@@ -130,23 +222,7 @@ namespace Xamarin.Forms.Platform.MacOS
 			return group;
 		}
 
-		protected virtual bool HasTabs => _hasTabs;
-
-		protected virtual NSToolbar ConfigureToolbar()
-		{
-			var toolbar = new NSToolbar(ToolBarId)
-			{
-				DisplayMode = NSToolbarDisplayMode.Icon,
-				AllowsUserCustomization = false,
-				ShowsBaselineSeparator = true,
-				SizeMode = NSToolbarSizeMode.Regular,
-				Delegate = this
-			};
-
-			return toolbar;
-		}
-
-		internal void UpdateToolBar()
+		public override void UpdateToolBar()
 		{
 			if (NSApplication.SharedApplication.MainWindow == null)
 				return;
@@ -216,65 +292,6 @@ namespace Xamarin.Forms.Platform.MacOS
 			UpdateToolbarItems();
 		}
 
-		async Task NavigateBackFrombackButton()
-		{
-			var popAsyncInner = _navigation?.PopAsyncInner(true, true);
-			if (popAsyncInner != null)
-				await popAsyncInner;
-		}
-
-		bool ShowBackButton()
-		{
-			if (_navigation == null)
-				return false;
-
-			return NavigationPage.GetHasBackButton(_navigation.CurrentPage) && !IsRootPage();
-		}
-
-		bool IsRootPage()
-		{
-			if (_navigation == null)
-				return true;
-			return _navigation.StackDepth <= 1;
-		}
-
-		NSColor GetBackgroundColor()
-		{
-			var backgroundNSColor = NSColor.Clear;
-			if (Navigation != null && Navigation.BarBackgroundColor != Color.Default)
-				backgroundNSColor = Navigation.BarBackgroundColor.ToNSColor();
-			return backgroundNSColor;
-		}
-
-		NSColor GetTitleColor()
-		{
-			var titleNSColor = NSColor.Black;
-			if (Navigation != null && Navigation?.BarTextColor != Color.Default)
-				titleNSColor = Navigation.BarTextColor.ToNSColor();
-
-			return titleNSColor;
-		}
-
-		string GetCurrentPageTitle()
-		{
-			if (_navigation == null)
-				return string.Empty;
-			return _navigation.Peek(0).Title ?? "";
-		}
-
-		string GetPreviousPageTitle()
-		{
-			if (_navigation == null || _navigation.StackDepth <= 1)
-				return string.Empty;
-
-			return _navigation.Peek(1).Title ?? _defaultBackButtonTitle;
-		}
-
-		List<ToolbarItem> GetToolbarItems()
-		{
-			return _toolbarTracker.ToolbarItems.ToList();
-		}
-
 		void UpdateTitle()
 		{
 			if (_toolbar == null || _navigation == null || _titleGroup == null)
@@ -309,7 +326,7 @@ namespace Xamarin.Forms.Platform.MacOS
 			titleField.Frame = new CGRect(x, 0, fieldWidth, ToolbarHeight);
 		}
 
-		void UpdateToolbarItems()
+		public override void UpdateToolbarItems()
 		{
 			if (_toolbar == null || _navigation == null || _toolbarGroup == null)
 				return;

@@ -24,10 +24,16 @@ namespace Xamarin.Forms.Platform.MacOS
 			if (application == null)
 				throw new ArgumentNullException(nameof(application));
 
+			Platform.NativeToolbarTracker = CreateNativeToolbarTracker();
 			Application.SetCurrentApplication(application);
 			_application = application;
 
 			application.PropertyChanged += ApplicationOnPropertyChanged;
+		}
+
+		public virtual NativeToolbarTrackerBase CreateNativeToolbarTracker()
+		{
+			return new NativeToolbarTracker();
 		}
 
 		public override void DidFinishLaunching(Foundation.NSNotification notification)
