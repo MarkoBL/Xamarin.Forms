@@ -22,7 +22,7 @@ namespace Xamarin.Forms.Platform.MacOS
 		bool _appeared;
 		bool _disposed;
 
-		internal static NativeToolbarTracker NativeToolbarTracker = new NativeToolbarTracker();
+		internal static NativeToolbarTrackerBase NativeToolbarTracker;
 
 		internal Platform()
 		{
