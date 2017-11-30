@@ -96,6 +96,8 @@ namespace Xamarin.Forms.Platform.iOS
 				UpdateFont();
 			else if (e.PropertyName == SearchBar.HorizontalTextAlignmentProperty.PropertyName)
 				UpdateAlignment();
+			else if (e.PropertyName == VisualElement.FlowDirectionProperty.PropertyName)
+				UpdateAlignment();
 		}
 
 		protected override void SetBackgroundColor(Color color)
@@ -117,6 +119,14 @@ namespace Xamarin.Forms.Platform.iOS
 
 			// updating BarTintColor resets the button color so we need to update the button color again
 			UpdateCancelButton();
+		}
+
+		public override CoreGraphics.CGSize SizeThatFits(CoreGraphics.CGSize size)
+		{
+			if (nfloat.IsInfinity(size.Width) && Forms.IsiOS11OrNewer)
+				size.Width = nfloat.MaxValue;
+			
+			return base.SizeThatFits(size);
 		}
 
 		void OnCancelClicked(object sender, EventArgs args)
@@ -153,7 +163,7 @@ namespace Xamarin.Forms.Platform.iOS
 			if (_textField == null)
 				return;
 
-			_textField.TextAlignment = Element.HorizontalTextAlignment.ToNativeTextAlignment();
+			_textField.TextAlignment = Element.HorizontalTextAlignment.ToNativeTextAlignment(((IVisualElementController)Element).EffectiveFlowDirection);
 		}
 
 		void UpdateCancelButton()
