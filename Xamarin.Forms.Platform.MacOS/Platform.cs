@@ -8,7 +8,7 @@ namespace Xamarin.Forms.Platform.MacOS
 {
 	public class Platform : BindableObject, IPlatform, IDisposable
 	{
-		public static readonly BindableProperty RendererProperty = BindableProperty.CreateAttached("Renderer",
+		internal static readonly BindableProperty RendererProperty = BindableProperty.CreateAttached("Renderer",
 			typeof(IVisualElementRenderer), typeof(Platform), default(IVisualElementRenderer),
 			propertyChanged: (bindable, oldvalue, newvalue) =>
 			{
